@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crop Recommendation System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 500px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #2d8659;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin: 10px 0 5px;
+        }
+        input[type="text"], input[type="number"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px;
+            background: #2d8659;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #24694d;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e6ffe6;
+            border: 1px solid #b3ffb3;
+            border-radius: 4px;
+            color: #2d8659;
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            .container {
+                max-width: 95vw;
+                margin: 10px auto;
+                padding: 10px;
+            }
+            h2 {
+                font-size: 1.3em;
+            }
+            input[type="text"], input[type="number"] {
+                font-size: 14px;
+            }
+            button {
+                font-size: 14px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+        <div class="container">
+        <h2>Crop Recommendation System</h2>
+        <form action="/predict" method="post">
+            <label for="Nitrogen">Nitrogen:</label>
+            <input type="number" name="Nitrogen" required placeholder="e.g. 0-140">
+            <label for="Phosporus">Phosphorus:</label>
+            <input type="number" name="Phosporus" required placeholder="e.g. 5-145">
+            <label for="Potassium">Potassium:</label>
+            <input type="number" name="Potassium" required placeholder="e.g. 5-205">
+            <label for="Temperature">Temperature (°C):</label>
+            <input type="number" step="any" name="Temperature" required placeholder="e.g. 8-44">
+            <label for="Humidity">Humidity (%):</label>
+            <input type="number" step="any" name="Humidity" required placeholder="e.g. 14-100">
+            <label for="Ph">pH:</label>
+            <input type="number" step="any" name="Ph" required placeholder="e.g. 3.5-9.9">
+            <label for="Rainfall">Rainfall (mm):</label>
+            <input type="number" step="any" name="Rainfall" required placeholder="e.g. 20-300">
+            <button type="submit">Predict Crop</button>
+        </form>
+        {% if result %}
+        <div class="result">{{ result }}</div>
+        {% if download_links %}
+        <div style="margin-top:10px;text-align:center;">
+            <a href="{{ download_links['pdf'] }}" download>Download as PDF</a> |
+            <a href="{{ download_links['txt'] }}" download>Download as Text</a>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</body>
+</html>
