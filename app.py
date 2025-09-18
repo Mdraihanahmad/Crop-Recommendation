@@ -24,6 +24,32 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY','dev-secret-key-change')  # needed for session
 
 # --------------------
+# Localization resources (English, Hindi minimal set). Extendable.
+# --------------------
+LOCALE = {
+    'en': {
+        'easy_label': 'Easy Explanation:',
+        'suggestions_label': 'Suggestions',
+        'good_factors': 'Good factors',
+        'needs_attention': 'Needs attention',
+        'model_confidence': 'Model confidence',
+        'planting_window': 'Planting Window',
+        'dosage_label': 'Approximate nutrient guidance',
+        'disclaimer': 'Generated automatically. Always validate with local experts.'
+    },
+    'hi': {
+        'easy_label': 'सरल जानकारी:',
+        'suggestions_label': 'सुझाव',
+        'good_factors': 'अच्छे कारक',
+        'needs_attention': 'ध्यान देने वाले कारक',
+        'model_confidence': 'मॉडल विश्वास',
+        'planting_window': 'रोपण समय',
+        'dosage_label': 'अनुमानित पोषक दिशा‑निर्देश',
+        'disclaimer': 'स्वचालित रूप से तैयार। स्थानीय कृषि विशेषज्ञ से पुष्टि करें.'
+    }
+}
+
+# --------------------
 # Load dataset & compute per-crop statistics for explanations
 # --------------------
 try:
@@ -131,7 +157,7 @@ except Exception as e:
             'daily': annotated
         }
 
-def build_explanation(predicted_crop: str, user_values: dict, probabilities=None, crop_dict=None):
+def build_explanation(predicted_crop: str, user_values: dict, probabilities=None, crop_dict=None, lang='en'):
     """Generate an explanation using training data stats.
     user_values: dict with raw feature names matching FEATURE_COLUMNS (dataset names)
     probabilities: (crop_name -> prob) mapping if available
@@ -174,14 +200,21 @@ def build_explanation(predicted_crop: str, user_values: dict, probabilities=None
             'assessment_class': cls
         })
     # Compose technical summary
+    if lang not in LOCALE: lang = 'en'
     if supportive and not weak:
-        summary = f"Most of your parameters ({', '.join(supportive)}) closely match typical conditions for {predicted_crop}."
+        summary_en = f"Most of your parameters ({', '.join(supportive)}) closely match typical conditions for {predicted_crop}."
+        summary_hi = f"आपके अधिकांश मान ({', '.join(supportive)}) {predicted_crop} के सामान्य मानों से मेल खाते हैं।"
+        summary = summary_en if lang=='en' else summary_hi
     elif supportive and weak:
-        summary = f"{predicted_crop} fits because {', '.join(supportive)} align with its profile; consider adjusting {', '.join(weak)}."
+        summary_en = f"{predicted_crop} fits because {', '.join(supportive)} align with its profile; consider adjusting {', '.join(weak)}."
+        summary_hi = f"{predicted_crop} उपयुक्त है क्योंकि {', '.join(supportive)} अच्छे हैं; {', '.join(weak)} को सुधारें।"
+        summary = summary_en if lang=='en' else summary_hi
     elif weak and not supportive:
-        summary = f"Several inputs ({', '.join(weak)}) differ from the usual profile, so treat this recommendation with caution."
+        summary_en = f"Several inputs ({', '.join(weak)}) differ from the usual profile, so treat this recommendation with caution."
+        summary_hi = f"कुछ मान ({', '.join(weak)}) सामान्य सीमा से अलग हैं, सावधानी रखें।"
+        summary = summary_en if lang=='en' else summary_hi
     else:
-        summary = "Insufficient statistical alignment data."
+        summary = "Insufficient statistical alignment data." if lang=='en' else 'पर्याप्त सांख्यिकीय डेटा नहीं।'
 
     # Simple farmer-friendly summary (avoid stats jargon)
     name_map = {
@@ -189,15 +222,26 @@ def build_explanation(predicted_crop: str, user_values: dict, probabilities=None
     }
     friendly_good = [name_map.get(x,x) for x in supportive]
     friendly_bad = [name_map.get(x,x) for x in weak]
-    if friendly_good and not friendly_bad:
-        farmer_summary = f"This crop suits your field. Your {', '.join(friendly_good)} levels look good." \
-                          f" Keep the same care and regular watering."
-    elif friendly_good and friendly_bad:
-        farmer_summary = f"Crop is suitable. Good: {', '.join(friendly_good)}. Needs attention: {', '.join(friendly_bad)}."
-    elif friendly_bad and not friendly_good:
-        farmer_summary = f"Be careful. {', '.join(friendly_bad)} are not in the best range for this crop. You may improve the soil or pick another crop."
+    if lang=='hi':
+        if friendly_good and not friendly_bad:
+            farmer_summary = f"यह फसल उपयुक्त है। {', '.join(friendly_good)} अच्छे हैं। देखभाल जारी रखें।"
+        elif friendly_good and friendly_bad:
+            farmer_summary = f"फसल ठीक है। अच्छे: {', '.join(friendly_good)} | सुधारें: {', '.join(friendly_bad)}"
+        elif friendly_bad and not friendly_good:
+            farmer_summary = f"सावधान रहें। {', '.join(friendly_bad)} इस फसल के लिए सही स्तर पर नहीं हैं।"
+        else:
+            farmer_summary = "फसल चल सकती है, कृपया मान पुनः जाँचें।"
     else:
-        farmer_summary = f"This crop may work, but please double‑check your soil values."
+        if friendly_good and not friendly_bad:
+            farmer_summary = f"This crop suits your field. Your {', '.join(friendly_good)} levels look good. Keep the same care." \
+                              f""
+        elif friendly_good and friendly_bad:
+            farmer_summary = f"Crop is suitable. Good: {', '.join(friendly_good)}. Needs attention: {', '.join(friendly_bad)}."
+        elif friendly_bad and not friendly_good:
+            farmer_summary = f"Be careful. {', '.join(friendly_bad)} are not in the best range for this crop. Consider improvement or another crop."\
+            
+        else:
+            farmer_summary = f"This crop may work, but please double‑check your soil values."
 
     # Basic actionable suggestions for weak features
     suggestions = []
@@ -213,7 +257,20 @@ def build_explanation(predicted_crop: str, user_values: dict, probabilities=None
     for w in weak:
         key = w.lower()
         # map dataset name to template key (ph name difference already matches)
-        suggestions.append(suggestion_templates.get(key, f'Improve {name_map.get(w,w)} conditions.'))
+        base = suggestion_templates.get(key, f'Improve {name_map.get(w,w)} conditions.')
+        if lang=='hi':
+            # Very simple Hindi equivalents (can refine later)
+            hi_map = {
+                'Add well‑decomposed compost or a balanced nitrogen fertilizer before planting.': 'अच्छी सड़ी खाद या संतुलित नाइट्रोजन उर्वरक डालें।',
+                'Incorporate rock phosphate or single super phosphate; avoid over‑watering early.': 'रॉक फॉस्फेट / एसएसपी मिलाएँ; अधिक सिंचाई न करें।',
+                'Add potash (muriate of potash) or wood ash in moderate amounts.': 'पोटाश (MOP) या राख सीमित मात्रा में डालें।',
+                'If soil is too acidic (low pH), apply agricultural lime; if too alkaline (high pH), add organic matter.': 'अम्लीय होने पर चुना डालें; अधिक क्षारीय होने पर जैविक पदार्थ मिलाएँ।',
+                'Consider waiting for a few warmer/cooler days if possible.': 'तापमान ठीक होने तक कुछ दिन प्रतीक्षा करें।',
+                'Ensure good airflow; avoid waterlogging and stagnant moisture.': 'अच्छा वायु प्रवाह रखें; पानी भराव से बचें।',
+                'Plan irrigation or drainage depending on expected rain.': 'अनुमानित वर्षा के अनुसार सिंचाई या निकासी की योजना बनाएं।'
+            }
+            base = hi_map.get(base, base)
+        suggestions.append(base)
 
     # Probability details
     prob_val = None
@@ -233,7 +290,9 @@ def build_explanation(predicted_crop: str, user_values: dict, probabilities=None
         'farmer_summary': farmer_summary,
         'suggestions': suggestions,
         'supportive_features': supportive,
-        'weak_features': weak
+        'weak_features': weak,
+        'lang': lang,
+        'labels': LOCALE.get(lang, LOCALE['en'])
     }
 
 def generate_recommendation_pdf(path:str, crop:str, result_text:str, feature_values:dict, explanation:dict, probabilities_map:dict):
@@ -319,11 +378,12 @@ def generate_recommendation_pdf(path:str, crop:str, result_text:str, feature_val
 
 @app.route('/')
 def index():
-    # Pop prediction data (one-time display) to avoid showing stale result on refresh
     pdata = session.pop('prediction_data', None)
+    # persistent language across requests
+    lang = session.get('lang','en')
     if pdata:
-        return render_template("index.html", **pdata)
-    return render_template("index.html")
+        return render_template("index.html", lang=lang, **pdata)
+    return render_template("index.html", lang=lang)
 
 @app.route("/predict",methods=['POST'])
 def predict():
@@ -375,7 +435,9 @@ def predict():
             'ph': ph,
             'rainfall': rainfall
         }
-        explanation = build_explanation(crop, user_ds_values, probabilities=probabilities_map, crop_dict=crop_dict)
+    lang = request.form.get('lang', session.get('lang','en'))
+    session['lang'] = lang
+    explanation = build_explanation(crop, user_ds_values, probabilities=probabilities_map, crop_dict=crop_dict, lang=lang)
         # Save enhanced recommendation as PDF and text
         pdf_path = os.path.join('static', 'downloads', 'recommendation.pdf')
         text_path = os.path.join('static', 'downloads', 'recommendation.txt')
