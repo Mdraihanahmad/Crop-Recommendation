@@ -71,91 +71,91 @@ except Exception as e:
     FEATURE_COLUMNS = ['N','P','K','temperature','humidity','ph','rainfall']
     print("[WARN] Failed to load stats for explanations:", e)
 
-    # --------------------
-    # Planting window: simple climate preference profiles (temp °C, rainfall mm/day)
-    # These ranges are illustrative; refine with agronomic data as needed.
-    # Each crop maps to preferred mean temperature range and approximate daily rainfall range.
-    # We'll evaluate upcoming 14-day forecast mean temperature & accumulated rainfall distribution.
-    # --------------------
-    CLIMATE_PROFILES = {
-        'Rice':       {'temp': (20, 32), 'rain_mm_day': (4, 15)},
-        'Maize':      {'temp': (18, 30), 'rain_mm_day': (2, 10)},
-        'Jute':       {'temp': (22, 34), 'rain_mm_day': (5, 18)},
-        'Cotton':     {'temp': (21, 33), 'rain_mm_day': (2, 8)},
-        'Coconut':    {'temp': (22, 34), 'rain_mm_day': (3, 12)},
-        'Papaya':     {'temp': (21, 33), 'rain_mm_day': (3, 10)},
-        'Orange':     {'temp': (15, 28), 'rain_mm_day': (1, 6)},
-        'Apple':      {'temp': (12, 24), 'rain_mm_day': (1, 6)},
-        'Muskmelon':  {'temp': (18, 30), 'rain_mm_day': (1, 5)},
-        'Watermelon': {'temp': (20, 32), 'rain_mm_day': (1, 5)},
-        'Grapes':     {'temp': (15, 30), 'rain_mm_day': (1, 6)},
-        'Mango':      {'temp': (22, 35), 'rain_mm_day': (1, 6)},
-        'Banana':     {'temp': (22, 34), 'rain_mm_day': (3, 12)},
-        'Pomegranate':{'temp': (18, 32), 'rain_mm_day': (1, 6)},
-        'Lentil':     {'temp': (10, 25), 'rain_mm_day': (1, 5)},
-        'Blackgram':  {'temp': (20, 32), 'rain_mm_day': (2, 10)},
-        'Mungbean':   {'temp': (20, 34), 'rain_mm_day': (2, 10)},
-        'Mothbeans':  {'temp': (25, 36), 'rain_mm_day': (0, 4)},
-        'Pigeonpeas': {'temp': (20, 33), 'rain_mm_day': (2, 10)},
-        'Kidneybeans':{'temp': (18, 28), 'rain_mm_day': (2, 8)},
-        'Chickpea':   {'temp': (15, 27), 'rain_mm_day': (1, 5)},
-        'Coffee':     {'temp': (18, 28), 'rain_mm_day': (3, 10)},
-    }
+# --------------------
+# Planting window: simple climate preference profiles (temp °C, rainfall mm/day)
+# These ranges are illustrative; refine with agronomic data as needed.
+# Each crop maps to preferred mean temperature range and approximate daily rainfall range.
+# We'll evaluate upcoming 14-day forecast mean temperature & accumulated rainfall distribution.
+# --------------------
+CLIMATE_PROFILES = {
+    'Rice':       {'temp': (20, 32), 'rain_mm_day': (4, 15)},
+    'Maize':      {'temp': (18, 30), 'rain_mm_day': (2, 10)},
+    'Jute':       {'temp': (22, 34), 'rain_mm_day': (5, 18)},
+    'Cotton':     {'temp': (21, 33), 'rain_mm_day': (2, 8)},
+    'Coconut':    {'temp': (22, 34), 'rain_mm_day': (3, 12)},
+    'Papaya':     {'temp': (21, 33), 'rain_mm_day': (3, 10)},
+    'Orange':     {'temp': (15, 28), 'rain_mm_day': (1, 6)},
+    'Apple':      {'temp': (12, 24), 'rain_mm_day': (1, 6)},
+    'Muskmelon':  {'temp': (18, 30), 'rain_mm_day': (1, 5)},
+    'Watermelon': {'temp': (20, 32), 'rain_mm_day': (1, 5)},
+    'Grapes':     {'temp': (15, 30), 'rain_mm_day': (1, 6)},
+    'Mango':      {'temp': (22, 35), 'rain_mm_day': (1, 6)},
+    'Banana':     {'temp': (22, 34), 'rain_mm_day': (3, 12)},
+    'Pomegranate':{'temp': (18, 32), 'rain_mm_day': (1, 6)},
+    'Lentil':     {'temp': (10, 25), 'rain_mm_day': (1, 5)},
+    'Blackgram':  {'temp': (20, 32), 'rain_mm_day': (2, 10)},
+    'Mungbean':   {'temp': (20, 34), 'rain_mm_day': (2, 10)},
+    'Mothbeans':  {'temp': (25, 36), 'rain_mm_day': (0, 4)},
+    'Pigeonpeas': {'temp': (20, 33), 'rain_mm_day': (2, 10)},
+    'Kidneybeans':{'temp': (18, 28), 'rain_mm_day': (2, 8)},
+    'Chickpea':   {'temp': (15, 27), 'rain_mm_day': (1, 5)},
+    'Coffee':     {'temp': (18, 28), 'rain_mm_day': (3, 10)},
+}
 
-    def evaluate_planting_window(crop: str, daily_forecast: List[Dict[str, Any]]):
-        """Given crop name and list of daily forecast entries with keys:
-        {'date': date, 't_mean': float, 'rain_mm': float}
-        Return suitability summary.
-        """
-        profile = CLIMATE_PROFILES.get(crop)
-        if not profile:
-            return { 'status': 'unknown', 'message': 'No climate profile available', 'score': None }
-        t_low, t_high = profile['temp']
-        r_low, r_high = profile['rain_mm_day']
-        ok_days = 0
-        near_days = 0
-        annotated = []
-        for d in daily_forecast:
-            t = d['t_mean']
-            r = d['rain_mm']
-            temp_ok = t_low <= t <= t_high
-            rain_ok = r_low <= r <= r_high
-            if temp_ok and rain_ok:
-                ok_days += 1
-                quality = 'ideal'
-            else:
-                # near if within 2C or 2mm outside
-                temp_near = (t_low - 2) <= t <= (t_high + 2)
-                rain_near = (r_low - 2) <= r <= (r_high + 2)
-                if temp_near and rain_near:
-                    near_days += 1
-                    quality = 'near'
-                else:
-                    quality = 'poor'
-            annotated.append({**d, 'quality': quality})
-        # Basic scoring: ideal day =2 pts, near=1 pt
-        score = ok_days * 2 + near_days
-        max_score = len(daily_forecast) * 2
-        pct = (score / max_score) * 100 if max_score else 0
-        if pct >= 70:
-            status = 'optimal'
-            message = 'Conditions look favorable for planting in the next two weeks.'
-        elif pct >= 45:
-            status = 'moderate'
-            message = 'Mixed conditions; acceptable but monitor weather shifts.'
+def evaluate_planting_window(crop: str, daily_forecast: List[Dict[str, Any]]):
+    """Given crop name and list of daily forecast entries with keys:
+    {'date': date, 't_mean': float, 'rain_mm': float}
+    Return suitability summary.
+    """
+    profile = CLIMATE_PROFILES.get(crop)
+    if not profile:
+        return { 'status': 'unknown', 'message': 'No climate profile available', 'score': None }
+    t_low, t_high = profile['temp']
+    r_low, r_high = profile['rain_mm_day']
+    ok_days = 0
+    near_days = 0
+    annotated = []
+    for d in daily_forecast:
+        t = d['t_mean']
+        r = d['rain_mm']
+        temp_ok = t_low <= t <= t_high
+        rain_ok = r_low <= r <= r_high
+        if temp_ok and rain_ok:
+            ok_days += 1
+            quality = 'ideal'
         else:
-            status = 'poor'
-            message = 'Suboptimal conditions—delay planting if possible.'
-        return {
-            'status': status,
-            'message': message,
-            'ideal_days': ok_days,
-            'near_days': near_days,
-            'total_days': len(daily_forecast),
-            'score_percent': round(pct, 1),
-            'profile': profile,
-            'daily': annotated
-        }
+            # near if within 2C or 2mm outside
+            temp_near = (t_low - 2) <= t <= (t_high + 2)
+            rain_near = (r_low - 2) <= r <= (r_high + 2)
+            if temp_near and rain_near:
+                near_days += 1
+                quality = 'near'
+            else:
+                quality = 'poor'
+        annotated.append({**d, 'quality': quality})
+    # Basic scoring: ideal day =2 pts, near=1 pt
+    score = ok_days * 2 + near_days
+    max_score = len(daily_forecast) * 2
+    pct = (score / max_score) * 100 if max_score else 0
+    if pct >= 70:
+        status = 'optimal'
+        message = 'Conditions look favorable for planting in the next two weeks.'
+    elif pct >= 45:
+        status = 'moderate'
+        message = 'Mixed conditions; acceptable but monitor weather shifts.'
+    else:
+        status = 'poor'
+        message = 'Suboptimal conditions—delay planting if possible.'
+    return {
+        'status': status,
+        'message': message,
+        'ideal_days': ok_days,
+        'near_days': near_days,
+        'total_days': len(daily_forecast),
+        'score_percent': round(pct, 1),
+        'profile': profile,
+        'daily': annotated
+    }
 
 def build_explanation(predicted_crop: str, user_values: dict, probabilities=None, crop_dict=None, lang='en'):
     """Generate an explanation using training data stats.
@@ -387,7 +387,7 @@ def index():
 
 @app.route("/predict",methods=['POST'])
 def predict():
-
+    # Extract form inputs
     N = float(request.form['Nitrogen'])
     P = float(request.form['Phosporus'])
     K = float(request.form['Potassium'])
@@ -403,6 +403,10 @@ def predict():
     final_features = sc.transform(scaled_features)
     prediction = model.predict(final_features)
 
+    # Language preference (persist)
+    lang = request.form.get('lang', session.get('lang','en'))
+    session['lang'] = lang
+
     crop_dict = {1: "Rice", 2: "Maize", 3: "Jute", 4: "Cotton", 5: "Coconut", 6: "Papaya", 7: "Orange",
                  8: "Apple", 9: "Muskmelon", 10: "Watermelon", 11: "Grapes", 12: "Mango", 13: "Banana",
                  14: "Pomegranate", 15: "Lentil", 16: "Blackgram", 17: "Mungbean", 18: "Mothbeans",
@@ -414,18 +418,13 @@ def predict():
     if hasattr(model, 'predict_proba'):
         try:
             proba = model.predict_proba(final_features)[0]
-            # build mapping using crop_dict indices
-            probabilities_map = {}
-            for idx, p in enumerate(proba, start=1):
-                if idx in crop_dict:
-                    probabilities_map[crop_dict[idx]] = float(p)
-        except Exception as _e:
+            probabilities_map = {crop_dict[idx]: float(p) for idx, p in enumerate(proba, start=1) if idx in crop_dict}
+        except Exception:
             probabilities_map = None
 
     if prediction[0] in crop_dict:
         crop = crop_dict[prediction[0]]
-        result = "{} is the best crop to be cultivated right there".format(crop)
-        # build raw values dict with dataset feature names
+        result = f"{crop} is the best crop to be cultivated right there"
         user_ds_values = {
             'N': N,
             'P': P,
@@ -435,12 +434,14 @@ def predict():
             'ph': ph,
             'rainfall': rainfall
         }
-    lang = request.form.get('lang', session.get('lang','en'))
-    session['lang'] = lang
-    explanation = build_explanation(crop, user_ds_values, probabilities=probabilities_map, crop_dict=crop_dict, lang=lang)
-        # Save enhanced recommendation as PDF and text
-        pdf_path = os.path.join('static', 'downloads', 'recommendation.pdf')
-        text_path = os.path.join('static', 'downloads', 'recommendation.txt')
+        explanation = build_explanation(crop, user_ds_values, probabilities=probabilities_map, crop_dict=crop_dict, lang=lang)
+
+        # Ensure downloads directory exists
+        downloads_dir = os.path.join('static', 'downloads')
+        os.makedirs(downloads_dir, exist_ok=True)
+
+        pdf_path = os.path.join(downloads_dir, 'recommendation.pdf')
+        text_path = os.path.join(downloads_dir, 'recommendation.txt')
         feature_values_plain = {
             'Nitrogen (N)': N,
             'Phosphorus (P)': P,
@@ -493,7 +494,8 @@ def predict():
     else:
         result = "Sorry, we could not determine the best crop to be cultivated with the provided data."
         download_links = None
-    # Store in session then redirect (PRG pattern) so refresh doesn't resubmit form / show old result
+
+    # Store in session then redirect (PRG pattern)
     session['prediction_data'] = {
         'result': result,
         'download_links': download_links,
