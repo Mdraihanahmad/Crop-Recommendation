@@ -10,12 +10,15 @@ Data Preprocessing: The input data is preprocessed to handle missing values, nor
 Machine Learning Models: Various machine learning algorithms are employed, including decision trees, random forests, support vector machines (SVM), and gradient boosting techniques, to build predictive models.
 Model Training and Evaluation: The models are trained on historical data and evaluated using appropriate performance metrics to ensure accuracy and reliability.
 Crop Recommendation: Based on the trained models, the system recommends the most suitable crops for the given input parameters.
+- Planting Window Indicator (14‑day suitability using temperature & rainfall vs crop profile)
 User-Friendly Interface: The system provides a user-friendly interface where users can easily input their data, view recommendations, and explore additional information.
 
 # Technologies Used
+4. Planting window endpoint (`/api/planting_window`) fetches a 14‑day daily forecast (Open‑Meteo) and scores each day as ideal / near / poor based on simple crop climate profiles (temperature mean & daily rainfall). The badge summarizes overall suitability.
 Python: Programming language used for model development, data preprocessing, and web application development.
 Scikit-learn: Machine learning library used for model training, evaluation, and prediction.
 Pandas: Data manipulation library used for data preprocessing and analysis.
+- Refined agronomic climate ranges (current planting window uses illustrative defaults; replace with regional data for production use)
 NumPy: Library for numerical computing used for handling arrays and mathematical operations.
 Flask: Web framework used for building the user interface and handling HTTP requests.
 HTML/CSS: Markup and styling languages used for designing the web interface.

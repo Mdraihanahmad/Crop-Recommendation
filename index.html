@@ -113,6 +113,35 @@
 			</div>
 			</div>
       </form>
+		<div class="row mt-4">
+			<div class="col-md-12 text-center">
+				<button type="button" class="btn btn-success" onclick="fetchLocationAndSoilData()">Allow Location & Get Soil Data</button>
+			</div>
+		</div>
+		<pre id="soil-data" style="background:#f8f9fa; padding:10px; border-radius:8px; margin-top:10px;"></pre>
+
+		<script>
+				function fetchLocationAndSoilData() {
+					// Simulate geolocation and API response for demo
+					const simulatedData = {
+						nitrogen: 45,
+						phosphorus: 30,
+						potassium: 50,
+						temperature: 28.5,
+						moisture: 60,
+						ph: 6.8,
+						rainfall: 120
+					};
+					document.getElementById('soil-data').innerText = JSON.stringify(simulatedData, null, 2);
+					document.getElementById('Nitrogen').value = simulatedData.nitrogen;
+					document.getElementById('Phosporus').value = simulatedData.phosphorus;
+					document.getElementById('Potassium').value = simulatedData.potassium;
+					document.getElementById('Temperature').value = simulatedData.temperature;
+					document.getElementById('Humidity').value = simulatedData.moisture;
+					document.getElementById('Ph').value = simulatedData.ph;
+					document.getElementById('Rainfall').value = simulatedData.rainfall;
+				}
+		</script>
 
 
 

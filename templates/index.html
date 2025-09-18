@@ -1,111 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crop Recommendation System</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f4f4;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            max-width: 500px;
-            margin: 40px auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        h2 {
-            text-align: center;
-            color: #2d8659;
-        }
-        form {
-            display: flex;
-            flex-direction: column;
-        }
-        label {
-            margin: 10px 0 5px;
-        }
-        input[type="text"], input[type="number"] {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        button {
-            margin-top: 20px;
-            padding: 10px;
-            background: #2d8659;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background: #24694d;
-        }
-        .result {
-            margin-top: 20px;
-            padding: 10px;
-            background: #e6ffe6;
-            border: 1px solid #b3ffb3;
-            border-radius: 4px;
-            color: #2d8659;
-            text-align: center;
-        }
-        @media (max-width: 600px) {
-            .container {
-                max-width: 95vw;
-                margin: 10px auto;
-                padding: 10px;
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>AI Crop Recommendation</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+    </head>
+    <body>
+        <nav>
+            <div class="brand"><span>🌱</span> AI Crop Predict</div>
+            <ul>
+                <li><a href="https://crop-yield-predictor-complete-websi.vercel.app/" class="active">Home</a></li>
+                <li><a href="#form">Predict</a></li>
+                <li><a href="#about">About</a></li>
+            </ul>
+        </nav>
+        <main class="main-wrap">
+            <section class="hero">
+                <h1><span>AI CROP RECOMMENDATION</span></h1>
+                <p>Enter soil and climate parameters or let us auto-fill using your location to get a tailored crop recommendation powered by machine learning.</p>
+                <div class="actions">
+                    <a href="#form" class="btn">Go to Predictor →</a>
+                    <button class="btn outline" type="button" onclick="fetchLocationAndSoilData()">Auto Fill via Location</button>
+                </div>
+            </section>
+
+            <section id="form" class="form-card">
+                <h2>Crop Recommendation</h2>
+                <div class="lang-row">
+                    <label for="lang" class="lang-label">Language / भाषा</label>
+                    <select id="lang" name="lang" class="lang-select" form="predictForm" onchange="persistLang()">
+                        <option value="en" {% if (lang or 'en') == 'en' %}selected{% endif %}>English</option>
+                        <option value="hi" {% if (lang or 'en') == 'hi' %}selected{% endif %}>हिन्दी</option>
+                    </select>
+                </div>
+                <form action="/predict" method="post" id="predictForm">
+                    <input type="hidden" name="lang" id="langHidden" value="{{ lang or 'en' }}" />
+                    <div class="grid">
+                        <div class="field"><label for="Nitrogen">Nitrogen</label><input name="Nitrogen" type="number" placeholder="0-140" required /></div>
+                        <div class="field"><label for="Phosporus">Phosphorus</label><input name="Phosporus" type="number" placeholder="5-145" required /></div>
+                        <div class="field"><label for="Potassium">Potassium</label><input name="Potassium" type="number" placeholder="5-205" required /></div>
+                        <div class="field"><label for="Temperature">Temperature (°C)</label><input name="Temperature" type="number" step="any" placeholder="8-44" required /></div>
+                        <div class="field"><label for="Humidity">Humidity (%)</label><input name="Humidity" type="number" step="any" placeholder="14-100" required /></div>
+                        <div class="field"><label for="Ph">pH</label><input name="Ph" type="number" step="any" placeholder="3.5-9.9" required /></div>
+                        <div class="field"><label for="Rainfall">Rainfall (mm)</label><input name="Rainfall" type="number" step="any" placeholder="20-300" required /></div>
+                    </div>
+                    <div class="inline-actions">
+                        <button class="btn" type="submit">Predict Crop</button>
+                        <button class="btn outline" type="button" onclick="fetchLocationAndSoilData()">Auto Fill via Location</button>
+                    </div>
+                    <div id="soil-data" class="status-box" aria-live="polite" style="display:none"></div>
+                </form>
+                {% if result %}
+                    <div class="result-box">{{ result }}</div>
+                    <div id="planting-window" class="planting-window" style="display:none"></div>
+                    {% if explanation %}
+                    <div class="explain-box">
+                        <h3>Why this crop?</h3>
+                        <p class="exp-summary">{{ explanation.summary }}</p>
+                        {% if explanation.farmer_summary %}
+                        <div class="farmer-simple">
+                            <strong>Easy Explanation:</strong> {{ explanation.farmer_summary }}
+                            {% if explanation.suggestions and explanation.suggestions|length > 0 %}
+                            <ul class="farmer-suggestions">
+                                {% for s in explanation.suggestions %}
+                                <li>{{ s }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        <div class="exp-probs">
+                            {% if explanation.probability is not none %}
+                            <div class="primary-prob">Model confidence: {{ (explanation.probability * 100)|round(2) }}%</div>
+                            {% endif %}
+                            {% if explanation.top_alternatives %}
+                            <div class="alt-prob">
+                                Alternatives:
+                                {% for alt in explanation.top_alternatives %}
+                                    <span>{{ alt.crop }} ({{ (alt.prob * 100)|round(1) }}%)</span>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <table class="exp-table">
+                            <thead><tr><th>Feature</th><th>Your</th><th>Mean</th><th>Std</th><th>Z</th><th>Assessment</th></tr></thead>
+                            <tbody>
+                            {% for f in explanation.feature_analysis %}
+                                <tr class="assess-{{ f.assessment_class }}"><td>{{ f.name }}</td><td>{{ f.value }}</td><td>{{ f.mean }}</td><td>{{ f.std }}</td><td>{{ f.z }}</td><td>{{ f.assessment }}</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                        <p class="exp-footnote">Explanation derived from training set statistics; large deviations (Z &gt; 1.5) are highlighted.</p>
+                    </div>
+                    {% endif %}
+                    {% if download_links %}
+                    <div class="downloads">
+                        <a href="{{ download_links['pdf'] }}" download>Download PDF</a>
+                        <a href="{{ download_links['txt'] }}" download>Download Text</a>
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </section>
+        </main>
+        <div class="footer" id="about">Built for sustainable farming • Improve accuracy with real sensor + weather integrations.</div>
+
+        <script>
+            function updateStatus(msg){const box=document.getElementById('soil-data');box.style.display='block';box.textContent=msg;}
+            function fillFields(data){const map={Nitrogen:data.nitrogen,Phosporus:data.phosphorus,Potassium:data.potassium,Temperature:data.temperature,Humidity:data.moisture??data.humidity,Ph:data.ph,Rainfall:data.rainfall};Object.entries(map).forEach(([k,v])=>{if(v!==undefined&&v!==null){const el=document.querySelector(`[name="${k}"]`);if(el)el.value=v;}});}
+            async function fetchLocationAndSoilData(){if(!navigator.geolocation){updateStatus('Geolocation not supported in this browser.');return;}updateStatus('Requesting location permission…');navigator.geolocation.getCurrentPosition(async pos=>{const {latitude,longitude}=pos.coords;window.__lastGeo={lat:latitude,lon:longitude};updateStatus(`Location acquired (${latitude.toFixed(3)}, ${longitude.toFixed(3)}). Fetching soil data…`);try{const res=await fetch(`/get_soil_data?lat=${latitude}&lon=${longitude}`);if(!res.ok)throw new Error('API response '+res.status);const data=await res.json();updateStatus('Soil/Weather data loaded. Populating fields.');fillFields(data);setTimeout(()=>{updateStatus('Autofill complete. Review values then Predict.')},1200);}catch(e){updateStatus('Failed to fetch live data: '+e.message);}},err=>{updateStatus('Location denied. Please allow access or fill manually.');});}
+
+            async function fetchPlantingWindow(cropName){
+                const container = document.getElementById('planting-window');
+                if(!container) return;
+                let lat, lon;
+                if(window.__lastGeo){lat=window.__lastGeo.lat;lon=window.__lastGeo.lon;}
+                if((lat===undefined || lon===undefined) && navigator.geolocation){
+                    try {
+                        const geo = await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(p=>resolve(p),e=>reject(e),{timeout:5000}));
+                        lat = geo.coords.latitude; lon = geo.coords.longitude; window.__lastGeo={lat,lon};
+                    } catch(e) {
+                        container.style.display='block';
+                        container.innerHTML = '<div class="pw-badge pw-missing">Location needed for planting window. Use Auto Fill first.</div>';
+                        return;
+                    }
+                }
+                if(lat===undefined || lon===undefined){
+                    container.style.display='block';
+                    container.innerHTML = '<div class="pw-badge pw-missing">No location available.</div>';
+                    return;
+                }
+                container.style.display='block';
+                container.innerHTML='<div class="pw-badge pw-loading">Loading planting window…</div>';
+                try {
+                    const res = await fetch(`/api/planting_window?crop=${encodeURIComponent(cropName)}&lat=${lat}&lon=${lon}`);
+                    if(!res.ok) throw new Error('HTTP '+res.status);
+                    const data = await res.json();
+                    if(data.error) throw new Error(data.error);
+                    const a = data.assessment;
+                    const statusMap = {optimal:'pw-optimal',moderate:'pw-moderate',poor:'pw-poor',unknown:'pw-unknown'};
+                    const badgeClass = statusMap[a.status]||'pw-unknown';
+                    const detail = `<div class="pw-badge ${badgeClass}"><strong>Planting Window:</strong> ${a.status.toUpperCase()} (${a.ideal_days} ideal / ${a.near_days} near of ${a.total_days} days)</div><div class=\"pw-msg\">${a.message}</div>`;
+                    container.innerHTML = detail;
+                } catch(e){
+                    container.innerHTML = `<div class="pw-badge pw-error">Planting window unavailable (${e.message})</div>`;
+                }
             }
-            h2 {
-                font-size: 1.3em;
-            }
-            input[type="text"], input[type="number"] {
-                font-size: 14px;
-            }
-            button {
-                font-size: 14px;
-                padding: 8px;
-            }
-        }
-    </style>
-</head>
-<body>
-        <div class="container">
-        <h2>Crop Recommendation System</h2>
-        <form action="/predict" method="post">
-            <label for="Nitrogen">Nitrogen:</label>
-            <input type="number" name="Nitrogen" required placeholder="e.g. 0-140">
-            <label for="Phosporus">Phosphorus:</label>
-            <input type="number" name="Phosporus" required placeholder="e.g. 5-145">
-            <label for="Potassium">Potassium:</label>
-            <input type="number" name="Potassium" required placeholder="e.g. 5-205">
-            <label for="Temperature">Temperature (°C):</label>
-            <input type="number" step="any" name="Temperature" required placeholder="e.g. 8-44">
-            <label for="Humidity">Humidity (%):</label>
-            <input type="number" step="any" name="Humidity" required placeholder="e.g. 14-100">
-            <label for="Ph">pH:</label>
-            <input type="number" step="any" name="Ph" required placeholder="e.g. 3.5-9.9">
-            <label for="Rainfall">Rainfall (mm):</label>
-            <input type="number" step="any" name="Rainfall" required placeholder="e.g. 20-300">
-            <button type="submit">Predict Crop</button>
-        </form>
-        {% if result %}
-        <div class="result">{{ result }}</div>
-        {% if download_links %}
-        <div style="margin-top:10px;text-align:center;">
-            <a href="{{ download_links['pdf'] }}" download>Download as PDF</a> |
-            <a href="{{ download_links['txt'] }}" download>Download as Text</a>
-        </div>
-        {% endif %}
-        {% endif %}
-    </div>
-</body>
+            document.addEventListener('DOMContentLoaded', ()=>{
+                const resultBox = document.querySelector('.result-box');
+                if(resultBox){
+                    const txt = resultBox.textContent||'';
+                    const crop = txt.split(' is the best')[0];
+                    if(crop) fetchPlantingWindow(crop.trim());
+                }
+            });
+        </script>
+    </body>
 </html>
